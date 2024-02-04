@@ -1,9 +1,11 @@
 import telebot
 from telebot import types
 from datetime import datetime
-from main_database import create_conn, execute_query
-from main_database import chek_st, check_ad
-from main_database import users_table, projects_table, departments_table, project_students
+from Elif_Bot.main_database import create_conn, execute_query
+from Elif_Bot.main_database import create_projects, create_users, create_departments, create_project_students
+from Elif_Bot.main_database import chek_st, check_ad
+from Elif_Bot.main_database import ADMINS, STAFF
+from Elif_Bot.main_database import users_table, projects_table, departments_table, project_students
 
 bot = telebot.TeleBot('6515479038:AAGL3I43ChKIEQpJQw5T8tyi5PPlcdzoq3s')
 name = ""
@@ -29,18 +31,18 @@ NEW_ABOUT = []
 NEW_DEADLINE = []
 
 # Создание соединения и выполнение запросов
-conn = create_conn('../Elif/students.sql')
+conn = create_conn('students.sql')
 execute_query(conn, users_table)
 execute_query(conn, projects_table)
 execute_query(conn, departments_table)
 execute_query(conn, project_students)
 # execute_query(conn, order)
 
-
-# execute_query(conn, create_users)
-# execute_query(conn, create_projects)
-# execute_query(conn, create_project_students)
-# execute_query(conn, create_departments)
+if 'Elif_Bot/students.sql' == None:
+    execute_query(conn, create_users)
+    execute_query(conn, create_projects)
+    execute_query(conn, create_project_students)
+    execute_query(conn, create_departments)
 
 
 @bot.message_handler(commands=['start'])
@@ -53,7 +55,6 @@ def start(message):
     btn_us = types.InlineKeyboardButton('User', callback_data='USER')
     btn_st = types.InlineKeyboardButton('Staff', callback_data='STAFF')
     markup.row(btn_ad, btn_us, btn_st)
-    #file = open('../test/img.png', 'rb')
     if check_ad(message):
         btn = types.InlineKeyboardButton('Check new order', callback_data=CHECK_ORDER)
         markup.row(btn)
@@ -61,7 +62,7 @@ def start(message):
     btn2 = types.InlineKeyboardButton(text='Education', callback_data=CALLBACK_E)
     btn3 = types.InlineKeyboardButton(text='Digital', callback_data=CALLBACK_D)
     markup.row(btn1, btn2, btn3)
-    bot.send_message(message.chat.id, 'wow', reply_markup=markup)
+    bot.send_message(message.chat.id, 'WoW', reply_markup=markup)
 
 def user_surname(message):
     name = message.text.strip()
@@ -76,7 +77,7 @@ def create_student(message, name, surname):
         global DEPARTMENT
         department = DEPARTMENT
         try:
-            conn = create_conn('../Elif/students.sql')
+            conn = create_conn('students.sql')
             cur = conn.cursor()
             cur.execute("INSERT INTO users (user_name, surname, department) VALUES (?, ?, ?)",
                         (name, surname, department))
@@ -94,7 +95,7 @@ def get_department_text(callback):
     global ADMINS
     global STAFF
     global DEPARTMENT
-    conn = create_conn('../Elif/students.sql')  # Замените 'students.sql' на фактический путь к вашей базе данных
+    conn = create_conn('students.sql')  # Замените 'students.sql' на фактический путь к вашей базе данных
 
     if callback.data in [CALLBACK_C, CALLBACK_E, CALLBACK_D]:
         department_text = {
@@ -109,13 +110,11 @@ def get_department_text(callback):
         ADMINS.append(callback.message.from_user.id)
         if callback.message.from_user.id in STAFF:
             STAFF.remove(callback.message.from_user.id)
-            print('staff')
         bot.send_message(callback.message.chat.id, f'Hello Admin')
-        bot.register_next_step_handler(callback.message, start)
+        start(callback.message)
     elif callback.data == 'STAFF':
         if callback.message.from_user.id in ADMINS:
             ADMINS.remove(callback.message.from_user.id)
-            print('admin')
         STAFF.append(callback.message.from_user.id)
         bot.send_message(callback.message.chat.id, f'Hello Staff')
     elif callback.data == 'USER':
@@ -123,13 +122,10 @@ def get_department_text(callback):
             if callback.message.from_user.id not in STAFF:
                 bot.send_message(callback.message.chat.id, 'You are User1')
         elif callback.message.from_user.id in ADMINS or STAFF:
-            print(23414324)
             if callback.message.from_user.id in ADMINS:
                 ADMINS.remove(callback.message.from_user.id)
-                print('asdfafdf')
             if callback.message.from_user.id in STAFF:
                 STAFF.remove(callback.message.from_user.id)
-                print('qwer')
             bot.send_message(callback.message.chat.id, 'You are User2')
 
     elif callback.data == CHECK_ORDER:
@@ -148,10 +144,14 @@ def get_department_text(callback):
     elif callback.data == "CHECK_TRUE":
         print('TRUE')
         CHECK_ADMIN = True
+        bot.register_next_step_handler(callback.message, check_project(callback.message, NEW_NAME_PROJECT, NEW_ABOUT, NEW_DEPARTMENT, NEW_DEADLINE, CHECK_ADMIN))
+
 
     elif callback.data == "CHECK_FALSE":
         print('FALSE')
         CHECK_ADMIN = False
+        bot.register_next_step_handler(callback.message, check_project(callback.message, NEW_NAME_PROJECT, NEW_ABOUT, NEW_DEADLINE, NEW_DEPARTMENT, CHECK_ADMIN))
+
 
     else:
         CALLBACK_C_message(callback, conn)
@@ -177,7 +177,10 @@ def send_info(message, conn, qwerty):
         btn2 = types.InlineKeyboardButton(text='Projects', callback_data=CALLBACK_LIST_PROJECT)
         btn3 = types.InlineKeyboardButton(text='About', callback_data=CALLBACK_ABOUT)
         markup.row(btn1, btn2, btn3)
-        bot.send_message(message.chat.id, qwerty, reply_markup=markup)
+        if qwerty != None:
+            bot.send_message(message.chat.id, qwerty, reply_markup=markup)
+        else:
+            bot.send_message(message.chat.id, 'Welcome', reply_markup=markup)
     elif chek_st(message):
         markup = types.InlineKeyboardMarkup()
         btn2 = types.InlineKeyboardButton(text='Projects', callback_data=CALLBACK_LIST_PROJECT)
@@ -191,44 +194,50 @@ def CALLBACK_C_message2(message, qwerty):
     chat_id = message.chat.id
     if qwerty == 'Welcome to Commerce Department ':
         bot.send_message(chat_id, 'What is the name of your project?')
-        bot.register_next_step_handler(message, lambda msg: project_description(msg, qwerty2='Commerce'))
+        bot.register_next_step_handler(message, lambda msg: project_description(msg, department='Commerce'))
     elif qwerty == 'Welcome to Education Department ':
         bot.send_message(chat_id, 'What is the name of your project?')
-        bot.register_next_step_handler(message, lambda msg: project_description(msg, qwerty2='Education'))
+        bot.register_next_step_handler(message, lambda msg: project_description(msg, department='Education'))
     elif qwerty == 'Welcome to Digital Department ':
         bot.send_message(chat_id, 'What is the name of your project?')
-        bot.register_next_step_handler(message, lambda msg: project_description(msg, qwerty2='Digital'))
+        bot.register_next_step_handler(message, lambda msg: project_description(msg, department='Digital'))
     else:
         bot.send_message(chat_id, 'Unknown option')
 
-def project_description(message, qwerty2):
+def project_description(message, department):
     global name_project
     name_project = message.text.strip()
     bot.send_message(message.chat.id, 'What is your project about?')
-    bot.register_next_step_handler(message, lambda msg: deadline(msg, qwerty2=qwerty2))
+    bot.register_next_step_handler(message, lambda msg: deadline(msg, department=department))
 
-def deadline(message, qwerty2):
+def deadline(message, department):
     global project_description
     project_description = message.text.strip()
     bot.send_message(message.chat.id, 'Date of deadline:')
-    bot.register_next_step_handler(message, lambda msg: finalize_order(msg, qwerty2=qwerty2))
+    bot.register_next_step_handler(message, lambda msg: finalize_order(msg, department=department))
 
-def finalize_order(message, qwerty2):
+def finalize_order(message, department):
     global date
     date = message.text.strip()
     date_format = "%d.%m.%Y"
     date_obj = datetime.strptime(date, date_format)
     your_date = date_obj.strftime("%Y-%m-%d")
     bot.send_message(message.chat.id,
-                     f'Project Name: {name_project}\nProject Description: {project_description}\nDeadline: {your_date}\nDepartment: {qwerty2}')
+                     f'Project Name: {name_project}\nProject Description: {project_description}\nDeadline: {your_date}\nDepartment: {department}')
 
-    insert_chek_project(message, project_name=name_project, about=project_description, department=qwerty2, deadline=your_date, CHECK_ADMIN=CHECK_ADMIN)
+    NEW_ORDERS.append(f'Project Name: {name_project}\nProject Description: {project_description}\nDeadline: {your_date}\nDepartment: {department}')
+    NEW_NAME_PROJECT.append(name_project)
+    NEW_DEPARTMENT.append(department)
+    NEW_ABOUT.append(project_description)
+    NEW_DEADLINE.append(your_date)
+
+    # insert_chek_project(message, project_name=name_project, about=project_description, department=department, deadline=your_date, CHECK_ADMIN=CHECK_ADMIN)
 
 def insert_chek_project(message, project_name, about, department, deadline,CHECK_ADMIN):
     NEW_ORDERS.append(f'Project Name: {name_project}\nProject Description: {project_description}\nDeadline: {deadline}\nDepartment: {department}')
     orderer = message.from_user.first_name + " " + message.from_user.last_name
     try:
-        conn = create_conn('../Elif/students.sql')
+        conn = create_conn('students.sql')
         cur = conn.cursor()
         cur.execute("INSERT INTO order (order_name, about, deadline, department, orderer) VALUES (?, ?, ?, ?, ?)", (project_name, about, deadline, department, orderer))
         conn.commit()
@@ -251,11 +260,12 @@ def insert_chek_project(message, project_name, about, department, deadline,CHECK
     NEW_ABOUT.append(project_description)
     NEW_DEADLINE.append(deadline)"""
 
-def check_project(message, project_name, about, department, deadline,CHECK_ADMIN):
+def check_project(message, project_name, about, department, deadline, CHECK_ADMIN):
     if CHECK_ADMIN:
         insert_project(message, project_name, about, department, deadline)
     elif CHECK_ADMIN == False:
-        bot.send_message(message.chet.id, 'NOT ADDED')
+        delete_last_message(chat_id=message.chat.id, message_id=message.message_id)
+        bot.send_message(message.chat.id, 'NOT ADDED')
     else:
         return f'Project Name: {name_project}\nProject Description: {project_description}\nDeadline: {deadline}\nDepartment: {department}'
     """else:
@@ -268,17 +278,18 @@ def delete_last_message(chat_id, message_id):
         print(f"Error deleting message: {e}")
 def insert_project(message, project_name, about, department, deadline):
     try:
-        conn = create_conn('../Elif/students.sql')
+        conn = create_conn('students.sql')
         cur = conn.cursor()
-        cur.execute("INSERT INTO projects (project_name, about, deadline, department) VALUES (?, ?, ?, ?)", (project_name, about, deadline, department))
+        print(f"Trying to insert project with name: {project_name}, {about}, {department}, {deadline}")
 
+        cur.execute("INSERT INTO projects (project_name, about,  deadline, department) VALUES (?, ?, ?, ?)", (project_name[0], about[0], deadline[0], department[0]))
         conn.commit()
         delete_last_message(chat_id=message.chat.id, message_id=message.message_id)
         bot.send_message(message.chat.id, 'Project added successfully!')
-        NEW_NAME_PROJECT.remove(project_name)
-        NEW_DEPARTMENT.remove(department)
-        NEW_ABOUT.remove(about)
-        NEW_DEADLINE.remove(deadline)
+        NEW_NAME_PROJECT.remove(project_name[0])
+        NEW_DEPARTMENT.remove(department[0])
+        NEW_ABOUT.remove(about[0])
+        NEW_DEADLINE.remove(deadline[0])
 
     except Exception as e:
         print(f"Error inserting project: {e}")
@@ -348,8 +359,10 @@ def CALLBACK_C_message(callback, conn):
                     project_students = cur.fetchall()
                     list_st = []
                     for students_list in project_students:
+                        print(students_list, project_info)
                         if students_list[0] == project_info[0]:
                             list_st.append(students_list[1])
+                            print(list_st)
                     student_name_list = ''
 
                     for student_id in list_st:

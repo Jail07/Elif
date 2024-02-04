@@ -1,11 +1,9 @@
 import telebot
 from telebot import types
 from datetime import datetime
-from Elif_Bot.database import ADMINS, STAFF
-from Elif_Bot.database import create_conn, execute_query
-from Elif_Bot.database import chek_st, check_us, check_ad
-from Elif_Bot.database import users_table, projects_table, departments_table, project_students, order
-from Elif_Bot.database import create_projects, create_users, create_departments, create_project_students
+from main_database import create_conn, execute_query
+from main_database import chek_st, check_ad
+from main_database import users_table, projects_table, departments_table, project_students
 
 bot = telebot.TeleBot('6515479038:AAGL3I43ChKIEQpJQw5T8tyi5PPlcdzoq3s')
 name = ""
@@ -36,13 +34,13 @@ execute_query(conn, users_table)
 execute_query(conn, projects_table)
 execute_query(conn, departments_table)
 execute_query(conn, project_students)
-execute_query(conn, order)
+# execute_query(conn, order)
 
 
-execute_query(conn, create_users)
-execute_query(conn, create_projects)
-execute_query(conn, create_project_students)
-execute_query(conn, create_departments)
+# execute_query(conn, create_users)
+# execute_query(conn, create_projects)
+# execute_query(conn, create_project_students)
+# execute_query(conn, create_departments)
 
 
 @bot.message_handler(commands=['start'])
@@ -111,20 +109,28 @@ def get_department_text(callback):
         ADMINS.append(callback.message.from_user.id)
         if callback.message.from_user.id in STAFF:
             STAFF.remove(callback.message.from_user.id)
+            print('staff')
         bot.send_message(callback.message.chat.id, f'Hello Admin')
+        bot.register_next_step_handler(callback.message, start)
     elif callback.data == 'STAFF':
         if callback.message.from_user.id in ADMINS:
             ADMINS.remove(callback.message.from_user.id)
+            print('admin')
         STAFF.append(callback.message.from_user.id)
         bot.send_message(callback.message.chat.id, f'Hello Staff')
     elif callback.data == 'USER':
-        if callback.message.from_user.id not in ADMINS or STAFF:
-            bot.send_message(callback.message.chat.id, 'You are User')
+        if callback.message.from_user.id not in ADMINS:
+            if callback.message.from_user.id not in STAFF:
+                bot.send_message(callback.message.chat.id, 'You are User1')
         elif callback.message.from_user.id in ADMINS or STAFF:
-            ADMINS.remove(callback.message.from_user.id)
-            STAFF.remove(callback.message.from_user.id)
-            bot.send_message(callback.message.chat.id, 'You are User')
-
+            print(23414324)
+            if callback.message.from_user.id in ADMINS:
+                ADMINS.remove(callback.message.from_user.id)
+                print('asdfafdf')
+            if callback.message.from_user.id in STAFF:
+                STAFF.remove(callback.message.from_user.id)
+                print('qwer')
+            bot.send_message(callback.message.chat.id, 'You are User2')
 
     elif callback.data == CHECK_ORDER:
         if NEW_ORDERS == []:
@@ -136,7 +142,7 @@ def get_department_text(callback):
                 btn = types.InlineKeyboardButton('Accept', callback_data='CHECK_TRUE')
                 btn2 = types.InlineKeyboardButton('Cancel', callback_data="CHECK_FALSE")
                 markup.row(btn, btn2)
-                bot.send_message(callback.message.chat.id, NEW_ORDERS[i], reply_markup=markup)
+                bot.send_message(callback.message.chat.id, NEW_ORDERS[i-1], reply_markup=markup)
                 print(CHECK_ADMIN)
 
     elif callback.data == "CHECK_TRUE":
@@ -178,26 +184,7 @@ def send_info(message, conn, qwerty):
         btn3 = types.InlineKeyboardButton(text='About', callback_data=CALLBACK_ABOUT)
         markup.row(btn2, btn3)
         bot.send_message(message.chat.id, qwerty, reply_markup=markup)
-
-        # Создаем соединение внутри функции
-        """select_users = "SELECT * FROM users"
-        users = execute_read_query(conn, select_users)
-        for user in users:
-            print(user)
-
-        select_departments = "SELECT * FROM departments"
-        departments = execute_read_query(conn, select_departments)
-        for department in departments:
-            print(department)
-
-        select_projects = "SELECT * FROM projects"
-        projects = execute_read_query(conn, select_projects)
-        for project in projects:
-            print(project)
-        # Закрываем соединение после использования
-        conn.close()"""
-
-    elif check_us(message):
+    else:
         CALLBACK_C_message2(message, qwerty)
 
 def CALLBACK_C_message2(message, qwerty):

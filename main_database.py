@@ -85,15 +85,15 @@ project_students = """CREATE TABLE IF NOT EXISTS project_students (
 );
 """
 
-order = """CREATE TABLE IF NOT EXISTS order (
-    id INTEGER PRIMARY KEY,
-    order_name TEXT,
-    about TEXT,
-    deadline DATE,
-    department TEXT,
-    orderer INTEGER
-);
-"""
+# order = """CREATE TABLE IF NOT EXISTS order (
+#     id INTEGER PRIMARY KEY,
+#     order_name TEXT,
+#     about TEXT,
+#     deadline DATE,
+#     department TEXT,
+#     orderer INTEGER
+# );
+# """
 
 # Ваши запросы на вставку данных
 create_users = """

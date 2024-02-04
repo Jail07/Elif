@@ -1,3 +1,6 @@
 venv/
 students.sql
 .idea/
+admin/ElifDB.sql
+admin/ElifDB_projects.sql
+database.py

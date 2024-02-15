@@ -2,4 +2,5 @@ venv/
 .idea/
 test_bot/
 GPT_bot.py
+Elif_Bot/check.py
 

@@ -4,10 +4,10 @@ import datetime
 import telebot
 from telebot import types
 
-from admin.configE import BOT_TOKEN, ADMINS
-from Elif_Bot.database import create_table, add_stuff, delete_from_db, show_details
-from Elif_Bot.database import order, completed_project, failed_project
-from Elif_Bot.database import create_conn
+from trash.configE import ADMINS
+from trash.database import create_table, add_stuff, delete_from_db, show_details
+from trash.database import order, completed_project, failed_project
+from trash.database import create_conn
 from sqlite3 import Error
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -20,7 +20,7 @@ user_message_stack = {}
 
 def execute_query(query, data=None):
     try:
-        conn = create_conn('../Elif_Bot/db.sql')
+        conn = create_conn('db.sql')
         cur = conn.cursor()
         if data:
             cur.execute(query, data)
@@ -35,7 +35,7 @@ def execute_query(query, data=None):
 
 
 def clear_all_data():
-    conn = create_conn('../Elif_Bot/db.sql')
+    conn = create_conn('db.sql')
     if not conn:
         return
     try:
@@ -60,7 +60,7 @@ def delete_last_message(chat_id, message_id):
 
 
 def initialize_db():
-    conn = create_conn('../Elif_Bot/db.sql')
+    conn = create_conn('db.sql')
     create_table(conn)
 
 
@@ -81,6 +81,16 @@ def main(message):
         admin_main(message)
     else:
         bot.send_message(message.chat.id, 'Вы не Админ!')
+
+@bot.message_handler(commands=['send'])
+def handle_send(message):
+    chat_id = message.chat.id
+    msg = bot.send_message(chat_id, "Please enter the announcement message:")
+    bot.register_next_step_handler(msg, receive_announcement)
+
+def receive_announcement(message):
+    insert_announcement(message.text)
+    bot.send_message(message.chat.id, "Announcement saved and will be sent to the staff.")
 
 
 def clear_message_stack(chat_id):
@@ -104,7 +114,8 @@ def admin_main(message):
     markup = types.InlineKeyboardMarkup()
     project_mgmt_button = types.InlineKeyboardButton("Управление проектами", callback_data='project_mgmt')
     staff_mgmt_button = types.InlineKeyboardButton("Управление сотрудниками", callback_data='staff_mgmt')
-    markup.add(project_mgmt_button, staff_mgmt_button)
+    send_message_button = types.InlineKeyboardButton("Отправить сообщение", callback_data='message_snd')
+    markup.add(project_mgmt_button, staff_mgmt_button, send_message_button)
     bot.send_message(message.chat.id, "Добро пожаловать Админ! Выберите категорию:", reply_markup=markup)
 
 
@@ -130,6 +141,11 @@ def handle_staff_mgmt(call):
     markup.add(add_staff_button, del_staff_button, show_staff_button, back_button)
     bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id,
                           text="Управление сотрудниками:", reply_markup=markup)
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'message_snd')
+def handle_message_snd(call):
+    bot.register_next_step_handler(call.message, handle_send)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'add_staff')
@@ -185,6 +201,15 @@ def handle_delete_project(call):
 def handle_delete_staff(call):
     show_all_users(call.message.chat.id, delete=True)
 
+def insert_announcement(message):
+    conn = create_conn('db.sql')
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO announcements (message, sent) VALUES (?, 0)", (message,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
 
 def add_staff_name(message):
     user_name = message.text.strip()
@@ -226,7 +251,7 @@ def add_staff_id(message, full_name, staff_id):
 
 def show_all_users(chat_id, delete=False):
     try:
-        conn = create_conn('../Elif_Bot/db.sql')
+        conn = create_conn('db.sql')
         cur = conn.cursor()
 
         cur.execute('SELECT * FROM staff')
@@ -257,7 +282,7 @@ def show_all_users(chat_id, delete=False):
 def staff_detail_handler(call):
     staff_id = int(call.data.split('_')[2])
     delete = bool(int(call.data.split('_')[3]))
-    conn = create_conn('../Elif_Bot/db.sql')
+    conn = create_conn('db.sql')
     cur = conn.cursor()
     cur.execute('SELECT full_name, staff_id_tg, speciality, project_id, complete, mistakes FROM staff WHERE id=?', (staff_id,))
     staff_info = cur.fetchone()
@@ -320,7 +345,7 @@ def add_project_name(message, department):
     mess = bot.send_message(message.chat.id, "Напишите описание проекта: ")
     messages_to_delete.append(mess.message_id)
     messages_to_delete.append(message.message_id)
-    bot.register_next_step_handler(message, project_deadline, department)
+    bot.register_next_step_handler(mess, project_deadline, department)
 
 
 def project_deadline(message, department):
@@ -329,7 +354,7 @@ def project_deadline(message, department):
     mess = bot.send_message(message.chat.id, "Напишите дедлайн в формате (Date.Month.Year) ")
     messages_to_delete.append(mess.message_id)
     messages_to_delete.append(message.message_id)
-    bot.register_next_step_handler(message, insert_project, department)
+    bot.register_next_step_handler(mess, insert_project, department)
 
 
 def schedule_notifications(chat_id, deadline):
@@ -376,7 +401,7 @@ def insert_project(message, department):
 def added_project(message, department, project, project_details, deadline):
     selected_performers = message.text
     order(project, project_details, deadline, department, selected_performers)
-    conn = create_conn('../Elif_Bot/db.sql')
+    conn = create_conn('db.sql')
     cur = conn.cursor()
 
     cur.execute("SELECT * FROM projects WHERE project_details = ?", (project_details, ))
@@ -401,7 +426,7 @@ def added_project(message, department, project, project_details, deadline):
 
 @bot.callback_query_handler(func=lambda callback: callback.data == 'save_order')
 def save_order(message, department, project_name, project_detail, deadline, status):
-    conn = create_conn('../Elif_Bot/db.sql')
+    conn = create_conn('db.sql')
     cur = conn.cursor()
     cur.execute("INSERT INTO projects(project_id, project_name, project_details, 'group', status,"
                 "deadline) VALUES(?, ?, ?, ?, ?)",
@@ -411,7 +436,7 @@ def save_order(message, department, project_name, project_detail, deadline, stat
 
 
 def select_staff(chat_id):
-    conn = create_conn('../Elif_Bot/db.sql')
+    conn = create_conn('db.sql')
     cur = conn.cursor()
     cur.execute('SELECT * FROM staff')
     employees = cur.fetchall()
@@ -429,7 +454,7 @@ def select_staff(chat_id):
 def select_project_callback(call):
     project_id = int(call.data.split('_')[2])
     delete = bool(int(call.data.split('_')[3]))
-    conn = create_conn('../Elif_Bot/db.sql')
+    conn = create_conn('db.sql')
     cur = conn.cursor()
     cur.execute(
         'SELECT project_id, project_name, project_details, user_id, `group`, deadline, status, performers FROM projects WHERE project_id=?',
@@ -481,7 +506,7 @@ def show_project_details_callback(call):
 
 def show_all_projects(chat_id, delete=False):
     try:
-        conn = create_conn('../Elif_Bot/db.sql')
+        conn = create_conn('db.sql')
         cur = conn.cursor()
         cur.execute('SELECT * FROM projects WHERE status=? or status=?', ('В ожидании', 'В процессе'))
         projects_list = cur.fetchall()
@@ -528,7 +553,7 @@ def show_projects_callback(call):
 
 def get_project_name(project_id):
     try:
-        conn = create_conn('../Elif_Bot/db.sql')
+        conn = create_conn('db.sql')
         cur = conn.cursor()
 
         cur.execute("SELECT project_name FROM projects WHERE id = ?", (project_id,))
@@ -563,7 +588,7 @@ def delete_project_callback(call):
 
 def delete_project(message, project_id):
     try:
-        conn = create_conn('../Elif_Bot/db.sql')
+        conn = create_conn('db.sql')
         cur = conn.cursor()
 
         # Get project name for logging or further use if needed

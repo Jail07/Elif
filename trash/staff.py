@@ -3,9 +3,8 @@ import sqlite3
 from telebot import types
 import datetime
 
-from database import failed_project, completed_project
-from admin.configE import Bot_MAIN
-from sqlite3 import Error
+from trash.database import failed_project, completed_project
+from trash.configE import Bot_MAIN
 
 bot = telebot.TeleBot(Bot_MAIN)
 user_data_dict = {}
@@ -37,7 +36,7 @@ def schedule_notifications(message, deadline):
 
 
 def proj_id(message, deadline):
-    connection = sqlite3.connect('../trash/db.sql')
+    connection = sqlite3.connect('db.sql')
     user_id = message.user_id
     cursor = connection.cursor()
     cursor.execute('SELECT staff_id FROM staff WHERE staff_id_tg = ?', (user_id,))
@@ -56,7 +55,7 @@ def staff_account(message):
         user_message_stack[chat_id] = []
         user_message_stack[chat_id].append(bot.send_message(chat_id, "Добро пожаловать!"))
 
-        connection = sqlite3.connect('../trash/db.sql')
+        connection = sqlite3.connect('db.sql')
         cursor = connection.cursor()
         cursor.execute('SELECT staff_id_tg FROM staff')
         staff_id = cursor.fetchone()
@@ -73,36 +72,11 @@ def staff_account(message):
         deadline = cursor.fetchone()
         for i in deadline:
             schedule_notifications(message, i)
-    except Error as e:
-        print(e)
-        # bot.send_message(message.chat.id, 'Извините, но в данный момент Бот на ремонте')
+    except:
+        bot.send_message(message.chat.id, 'Извините, но в данный момент Бот на ремонте')
     finally:
         cursor.close()
         connection.close()
-
-
-
-@bot.message_handler(commands=['check'])
-def send_announcements_to_staff(message):
-    conn = sqlite3.connect('db.sql')
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, message FROM announcements WHERE sent = 0")
-    announcements = cursor.fetchall()
-
-    for announcement_id, message in announcements:
-        # Here you need to decide how you want to send messages to the staff
-        # For example, sending to all staff members in the 'staff' table
-        cursor.execute("SELECT staff_id_tg FROM staff")
-        staff_members = cursor.fetchall()
-        for staff_member in staff_members:
-            staff_chat_id = staff_member[0]
-            bot.send_message(staff_chat_id, message)
-
-        # Mark the announcement as sent
-        cursor.execute("UPDATE announcements SET sent = 1 WHERE id = ?", (announcement_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
 
 
 def staff_account_options(message):
@@ -163,7 +137,7 @@ def departments(callback):
 def my_info(callback):
     chat_id = callback.message.chat.id
     user_id = callback.from_user.id
-    connection = sqlite3.connect('../trash/db.sql')
+    connection = sqlite3.connect('db.sql')
     cursor = connection.cursor()
 
     cursor.execute('SELECT * FROM staff WHERE staff_id_tg = ?', (user_id,))
@@ -217,7 +191,7 @@ def my_info(callback):
 @bot.callback_query_handler(func=lambda callback: callback.data.startswith('my_order'))
 def my_order(callback):
     chat_id = callback.message.chat.id
-    connection = sqlite3.connect('../trash/db.sql')
+    connection = sqlite3.connect('db.sql')
     user_id = callback.from_user.id
     cursor = connection.cursor()
     cursor.execute('SELECT project_id FROM staff WHERE staff_id_tg = ?', (user_id,))
@@ -283,7 +257,7 @@ def fail_order(callback):
 def show_orders(callback):
     chat_id = callback.message.chat.id
     group = callback.data.split('_')[-1]
-    connection = sqlite3.connect('../trash/db.sql')
+    connection = sqlite3.connect('db.sql')
     cursor = connection.cursor()
     cursor.execute('SELECT * FROM projects WHERE "group" = ?', (group,))
     projects = cursor.fetchall()
@@ -337,7 +311,7 @@ def show_orders(callback):
 @bot.callback_query_handler(func=lambda callback: callback.data == 'staff_list')
 def show_staff_list(callback):
     chat_id = callback.message.chat.id
-    connection = sqlite3.connect('../trash/db.sql')
+    connection = sqlite3.connect('db.sql')
     cursor = connection.cursor()
 
     cursor.execute('SELECT full_name, project_id FROM staff')
@@ -366,7 +340,7 @@ def show_staff_info_callback(callback):
 
 
 def show_staff_info(chat_id, user_name):
-    connection = sqlite3.connect('../trash/db.sql')
+    connection = sqlite3.connect('db.sql')
     cursor = connection.cursor()
 
     cursor.execute('SELECT * FROM staff WHERE full_name = ?', (user_name,))

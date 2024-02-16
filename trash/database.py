@@ -41,7 +41,8 @@ projects = '''CREATE TABLE IF NOT EXISTS projects(
     department TEXT,
     status TEXT,
     deadline DATE,
-    performers TEXT
+    performers TEXT,
+    staff_id_tg TEXT
 );
 '''
 
@@ -94,7 +95,7 @@ def create_conn(path):
 def exist_user(message):
     chat_id = message.chat.id
     user_id = message.from_user.id
-    conn = sqlite3.connect('../trash/db.sql')
+    conn = sqlite3.connect('db.sql')
     cursor = conn.cursor()
 
     cursor.execute('SELECT * FROM users WHERE user_id = ?', (user_id,))
@@ -110,7 +111,7 @@ def exist_user(message):
 
 # Добавление сотрудника
 def add_stuff(full_name, id_staff, speciality):
-    with sqlite3.connect('../trash/db.sql') as conn:
+    with sqlite3.connect('db.sql') as conn:
         cur = conn.cursor()
         cur.execute("INSERT INTO staff(full_name, staff_id_tg, speciality, project_id, complete, mistakes ) VALUES(?, ?, ?, ?, ?, ?)",
                     (full_name, id_staff, speciality, 1, 0, 0))
@@ -119,12 +120,12 @@ def add_stuff(full_name, id_staff, speciality):
 
 
 # Закидывает данные заказа в очередь
-def order(project_name, project_details, deadline, department, performers):
-    conn = sqlite3.connect('../trash/db.sql')
+def order(project_name, project_details, deadline, department, performers, staff_tg):
+    conn = sqlite3.connect('db.sql')
     status = 'В ожидании'
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO projects (project_name, project_details, deadline, `group`, status, performers) VALUES (?, ?, ?, ?, ?, ?)",
-                (project_name, project_details, deadline, department, status, performers))
+    cursor.execute("INSERT INTO projects (project_name, project_details, deadline, `group`, status, performers, staff_id_tg) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (project_name, project_details, deadline, department, status, performers, staff_tg))
     conn.commit()
     cursor.close()
     conn.close()
@@ -132,7 +133,7 @@ def order(project_name, project_details, deadline, department, performers):
 
 # После нажатия кнопки собирает имена проектов которые еще не взять кем-то
 def show_projects():
-    conn = sqlite3.connect('../trash/db.sql')
+    conn = sqlite3.connect('db.sql')
     cursor = conn.cursor()
     cursor.execute("SELECT project_name FROM projects")
     projects = cursor.fetchall()
@@ -143,7 +144,7 @@ def show_projects():
 
 # Показывает детали выбранного проекта
 def show_details(project_id):
-    conn = sqlite3.connect('../trash/db.sql')
+    conn = sqlite3.connect('db.sql')
     cursor = conn.cursor()
     cursor.execute("SELECT project_details FROM projects WHERE project_id=?", (project_id,))
     details = cursor.fetchone()
@@ -154,7 +155,7 @@ def show_details(project_id):
 
 # Проект разрабатывается сотрудниками и данные переходят в базу сотрудников
 def approved_project(project_id):
-    conn = sqlite3.connect('../trash/db.sql')
+    conn = sqlite3.connect('db.sql')
     status = "В процессе"
     cursor = conn.cursor()
     cursor.execute('''
@@ -171,7 +172,7 @@ def approved_project(project_id):
 
 # При провале обновляется статус и увеличиваются косяки
 def failed_project(project_id):
-    conn = sqlite3.connect('../trash/db.sql')
+    conn = sqlite3.connect('db.sql')
     status = 'Провален'
     cursor = conn.cursor()
     cursor.execute(f"UPDATE projects SET status=? WHERE project_id=?", (status, project_id,))
@@ -185,7 +186,7 @@ def failed_project(project_id):
 
 # Обновлятется статус когда проект успешен
 def completed_project(project_id):
-    conn = sqlite3.connect('../trash/db.sql')
+    conn = sqlite3.connect('db.sql')
     status = 'Завершен'
     cursor = conn.cursor()
     cursor.execute(f"UPDATE projects SET status=? WHERE project_id=?", (status, project_id,))
@@ -211,7 +212,7 @@ def completed_project(project_id):
 # Удаление из базы данных
 # Updated function to delete from database with dynamic primary key column names
 def delete_from_db(table, index):
-    conn = sqlite3.connect('../trash/db.sql')
+    conn = sqlite3.connect('db.sql')
     cursor = conn.cursor()
 
     # Map of table names to their primary key column names
